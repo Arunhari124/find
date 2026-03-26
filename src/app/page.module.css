@@ -1,0 +1,55 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 100vh;
+  padding: 40px 24px;
+}
+
+.logoContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.logoText {
+  font-size: 4rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  text-shadow: 2px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.welcomeText {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.actionsContainer {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
+}
+
+.guestLink {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.2s ease;
+}
+
+.guestLink:hover {
+  color: var(--text-primary);
+}

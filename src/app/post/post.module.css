@@ -1,0 +1,104 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 24px;
+}
+
+.header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.backBtn {
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.mainContent {
+  padding: 0 24px;
+  flex: 1;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.card {
+  padding: 24px;
+}
+
+.card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.roleGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 1rem;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--input-focus);
+}
+
+.imageUpload {
+  height: 160px;
+  border: 2px dashed var(--input-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  cursor: pointer;
+  background: var(--input-bg);
+}
+
+.imageUpload p {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.imageUpload small {
+  color: var(--text-secondary);
+}
+
+.aiSuccess {
+  color: var(--status-found-text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}

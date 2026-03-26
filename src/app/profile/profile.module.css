@@ -1,0 +1,152 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: 24px;
+}
+
+.header {
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.backBtn {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.iconBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.mainContent {
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profileHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0;
+}
+
+.avatarLarge {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent-secondary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-3d);
+}
+
+.name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.phone {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.editBtn {
+  padding: 8px 24px;
+  font-size: 0.9rem;
+}
+
+.statsRow {
+  display: flex;
+  gap: 16px;
+}
+
+.statCard {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+}
+
+.statCard h3 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.statCard p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.sectionHeader h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.postItem {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.postMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.postType {
+  letter-spacing: 1px;
+}
+
+.postDate {
+  color: var(--text-secondary);
+}
+
+.postItem h4 {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.postActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.logoutBtn {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #ef4444;
+}
