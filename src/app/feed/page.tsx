@@ -54,31 +54,61 @@ export default function FeedPage() {
 
     if (itemsData) {
       // Safely attempt to fetch comments per item in parallel
-      const enrichedItems = await Promise.all(itemsData.map(async (d: any) => {
-        let commentsList: any[] = [];
-        try {
-          const { data: cData } = await supabase
-            .from('comments')
-            .select('id, content, profiles(full_name)')
-            .eq('item_id', d.id)
-            .order('created_at', { ascending: false })
-            .limit(3);
-          if (cData) commentsList = cData;
-        } catch (e) { /* ignore if comments table not yet created */ }
-
-        return {
-          id: d.id,
-          type: d.type,
-          category: d.category || 'Other',
-          name: d.product_name,
-          user: d.profiles?.full_name || 'Guest User',
-          user_id: d.profiles?.id,
-          distance: d.location_area || 'Nearby',
-          image: d.image_url || 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=400',
-          description: d.description || 'No description provided.',
-          comments: commentsList
+      type CommentType = {
+        id: number | string;
+        content: string;
+        profiles?: {
+          full_name: string;
         };
-      }));
+      };
+
+      type ItemType = {
+        id: string;
+        type: string;
+        category?: string;
+        product_name?: string;
+        profiles?: {
+          id: string;
+          full_name: string;
+        };
+        location_area?: string;
+        image_url?: string;
+        description?: string;
+      };
+
+      const enrichedItems = await Promise.all(
+        itemsData.map(async (d: ItemType) => {
+
+          let commentsList: CommentType[] = [];
+
+          try {
+            const { data: cData } = await supabase
+              .from('comments')
+              .select('id, content, profiles(full_name)')
+              .eq('item_id', d.id)
+              .order('created_at', { ascending: false })
+              .limit(3);
+
+            if (cData) commentsList = cData as CommentType[];
+
+          } catch (e) {
+            // ignore if comments table not yet created
+          }
+
+          return {
+            id: d.id,
+            type: d.type,
+            category: d.category || 'Other',
+            name: d.product_name,
+            user: d.profiles?.full_name || 'Guest User',
+            user_id: d.profiles?.id,
+            distance: d.location_area || 'Nearby',
+            image: d.image_url || 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=400',
+            description: d.description || 'No description provided.',
+            comments: commentsList
+          };
+        })
+      );
       setItems(enrichedItems);
     }
     setLoading(false);
