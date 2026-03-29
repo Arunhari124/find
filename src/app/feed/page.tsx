@@ -10,20 +10,20 @@ import styles from './feed.module.css';
 
 const getCategoryStyle = (category: string) => {
   if (!category) return { background: 'var(--glass-bg)' };
-  
+
   const cat = category.toLowerCase();
-  let gradient = 'var(--glass-bg)'; 
-  
+  let gradient = 'var(--glass-bg)';
+
   if (cat.includes('wallet') || cat.includes('card')) {
-    gradient = 'linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, var(--glass-bg) 100%)'; 
+    gradient = 'linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, var(--glass-bg) 100%)';
   } else if (cat.includes('electronic') || cat.includes('phone')) {
-    gradient = 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, var(--glass-bg) 100%)'; 
+    gradient = 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, var(--glass-bg) 100%)';
   } else if (cat.includes('jewelry') || cat.includes('watch') || cat.includes('gold')) {
-    gradient = 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, var(--glass-bg) 100%)'; 
+    gradient = 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, var(--glass-bg) 100%)';
   } else if (cat.includes('key')) {
-    gradient = 'linear-gradient(135deg, rgba(107, 114, 128, 0.15) 0%, var(--glass-bg) 100%)'; 
+    gradient = 'linear-gradient(135deg, rgba(107, 114, 128, 0.15) 0%, var(--glass-bg) 100%)';
   }
-  
+
   return { background: gradient };
 };
 
@@ -31,7 +31,7 @@ export default function FeedPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedItems, setLikedItems] = useState<Set<number>>(new Set());
-  const [tempComments, setTempComments] = useState<{[key: string]: string}>({});
+  const [tempComments, setTempComments] = useState<{ [key: string]: string }>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch Live Data from Supabase
@@ -55,7 +55,7 @@ export default function FeedPage() {
     if (itemsData) {
       // Safely attempt to fetch comments per item in parallel
       const enrichedItems = await Promise.all(itemsData.map(async (d: any) => {
-        let commentsList = [];
+        let commentsList: any[] = [];
         try {
           const { data: cData } = await supabase
             .from('comments')
@@ -64,7 +64,7 @@ export default function FeedPage() {
             .order('created_at', { ascending: false })
             .limit(3);
           if (cData) commentsList = cData;
-        } catch(e) { /* ignore if comments table not yet created */ }
+        } catch (e) { /* ignore if comments table not yet created */ }
 
         return {
           id: d.id,
@@ -133,7 +133,7 @@ export default function FeedPage() {
     });
 
     if (error) {
-       console.error("Make sure to run the SQL to create the comments table!");
+      console.error("Make sure to run the SQL to create the comments table!");
     }
   };
 
@@ -142,7 +142,7 @@ export default function FeedPage() {
       <header className={styles.header}>
         <div className={styles.headerTabs}>
           <div className={styles.activeTab}>Main Feed</div>
-          <Link href="/found" className={styles.tab} style={{textDecoration:'none'}}>Found Gallery</Link>
+          <Link href="/found" className={styles.tab} style={{ textDecoration: 'none' }}>Found Gallery</Link>
         </div>
       </header>
 
@@ -155,7 +155,7 @@ export default function FeedPage() {
           ) : items.length === 0 ? (
             <div className={styles.emptyState} style={{ zIndex: 10 }}>
               <TicTacToe />
-              <button onClick={fetchItems} className="btn-3d btn-primary" style={{marginTop: '2rem'}}>
+              <button onClick={fetchItems} className="btn-3d btn-primary" style={{ marginTop: '2rem' }}>
                 Refresh Feed / Loop Back
               </button>
             </div>
@@ -167,9 +167,9 @@ export default function FeedPage() {
                   key={item.id}
                   className={styles.cardWrapper}
                   initial={{ scale: 0.9, opacity: 0, y: 50 }}
-                  animate={{ 
-                    scale: isTop ? 1 : 0.95, 
-                    opacity: 1, 
+                  animate={{
+                    scale: isTop ? 1 : 0.95,
+                    opacity: 1,
                     y: isTop ? 0 : 20,
                     zIndex: items.length - index,
                   }}
@@ -190,17 +190,17 @@ export default function FeedPage() {
                     }}>
                       {item.type.toUpperCase()}
                     </div>
-                    
+
                     <img src={item.image} alt={item.name} className={styles.itemImage} draggable="false" />
-                    
+
                     <div className={styles.itemInfo} style={getCategoryStyle(item.category)}>
                       <div className={styles.metaRow}>
                         <span className={styles.itemCategory}>{item.category}</span>
-                        <span className={styles.itemDistance}><Navigation size={12}/> {item.distance}</span>
+                        <span className={styles.itemDistance}><Navigation size={12} /> {item.distance}</span>
                       </div>
                       <h3 className={styles.itemName}>{item.name}</h3>
                       <p className={styles.itemDescription}>{item.description}</p>
-                      
+
                       <div className={styles.userRow}>
                         <div className={styles.userAvatar}>{item.user[0]}</div>
                         <span className={styles.userName}>{item.user} ✓</span>
@@ -208,7 +208,7 @@ export default function FeedPage() {
 
                       {/* Privacy enhancement: Only show chat, do not expose phone number on feed */}
                       <div className={styles.actionButtons} style={{ marginTop: '16px' }}>
-                        <Link href={`/chat?peer=${item.user_id}`} className="btn-3d btn-primary" style={{flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none'}}>
+                        <Link href={`/chat?peer=${item.user_id}`} className="btn-3d btn-primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}>
                           <MessageCircle size={18} /> Direct Message
                         </Link>
                       </div>
@@ -244,15 +244,15 @@ export default function FeedPage() {
                           {item.comments.length > 2 && <Link href={`/item/${item.id}`} style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>View all comments...</Link>}
                         </div>
                       )}
-                      
+
                       {/* Add Comment Input */}
                       <form onSubmit={(e) => handleCommentSubmit(e, item.id)} style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <input 
-                          type="text" 
-                          placeholder="Add a real comment..." 
+                        <input
+                          type="text"
+                          placeholder="Add a real comment..."
                           value={tempComments[item.id] || ''}
                           onChange={e => setTempComments(prev => ({ ...prev, [item.id]: e.target.value }))}
-                          style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '8px 16px', color: 'white', fontSize: '0.85rem' }} 
+                          style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '8px 16px', color: 'white', fontSize: '0.85rem' }}
                         />
                         <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                           <Send size={14} color="white" />
