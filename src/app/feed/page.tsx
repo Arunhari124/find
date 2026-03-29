@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, Phone, Navigation, AlertCircle, Heart, Flag, Send } from 'lucide-react';
+import { MessageCircle, Navigation, Heart, Flag, Send } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/components/BottomNav';
 import TicTacToe from '@/components/TicTacToe';
@@ -27,54 +27,23 @@ const getCategoryStyle = (category: string) => {
   return { background: gradient };
 };
 
-const DUMMY_COMMENTS = [
-  "Is this still available?",
-  "I think I saw something similar near the cafeteria yesterday.",
-  "Hope you find the owner soon!",
-  "Can you share more pictures from the back?",
-  "Let's connect in chat, I might have found this.",
-  "That looks exactly like what I lost."
-];
-
-function CommentTicker() {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex(i => (i + 1) % DUMMY_COMMENTS.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div style={{ marginTop: '12px', padding: '12px 8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden', height: '45px', position: 'relative' }}>
-      <AnimatePresence mode="wait">
-        <motion.p
-          key={index}
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -20, opacity: 0 }}
-          transition={{ duration: 0.5 }}
-          style={{ position: 'absolute', margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', width: 'calc(100% - 16px)', left: 8, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
-        >
-          <span style={{ fontWeight: 600, color: 'var(--accent-primary)', marginRight: '6px' }}>User_{Math.floor(Math.random()*900)+100}:</span> 
-          {DUMMY_COMMENTS[index]}
-        </motion.p>
-      </AnimatePresence>
-    </div>
-  );
-}
-
 export default function FeedPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedItems, setLikedItems] = useState<Set<number>>(new Set());
-  const [tempComment, setTempComment] = useState('');
+  const [tempComments, setTempComments] = useState<{[key: string]: string}>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch Live Data from Supabase
   const fetchItems = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+
+    // Using a simpler query since relation mapping error might occur if comments table is not properly set yet.
+    // If the comments table isn't created by the user yet, this could fail. 
+    // We will separate the comments fetch to prevent the entire feed from failing.
+    const { data: itemsData, error: itemsError } = await supabase
       .from('items')
       .select(`
         *,
@@ -83,21 +52,34 @@ export default function FeedPage() {
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
-    if (data) {
-      const formattedItems = data.map((d: any) => ({
-        id: d.id,
-        type: d.type,
-        category: d.category || 'Other',
-        name: d.product_name,
-        user: d.profiles?.full_name || 'Guest User',
-        user_id: d.profiles?.id,
-        phone: d.profiles?.phone_number || '',
-        whatsapp: d.profiles?.whatsapp_number || '',
-        distance: d.location_area || 'Nearby',
-        image: d.image_url || 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=400',
-        description: d.description || 'No description provided.',
+    if (itemsData) {
+      // Safely attempt to fetch comments per item in parallel
+      const enrichedItems = await Promise.all(itemsData.map(async (d: any) => {
+        let commentsList = [];
+        try {
+          const { data: cData } = await supabase
+            .from('comments')
+            .select('id, content, profiles(full_name)')
+            .eq('item_id', d.id)
+            .order('created_at', { ascending: false })
+            .limit(3);
+          if (cData) commentsList = cData;
+        } catch(e) { /* ignore if comments table not yet created */ }
+
+        return {
+          id: d.id,
+          type: d.type,
+          category: d.category || 'Other',
+          name: d.product_name,
+          user: d.profiles?.full_name || 'Guest User',
+          user_id: d.profiles?.id,
+          distance: d.location_area || 'Nearby',
+          image: d.image_url || 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=400',
+          description: d.description || 'No description provided.',
+          comments: commentsList
+        };
       }));
-      setItems(formattedItems);
+      setItems(enrichedItems);
     }
     setLoading(false);
   };
@@ -107,10 +89,7 @@ export default function FeedPage() {
   }, []);
 
   const handleSwipe = (direction: 'left' | 'right', id: number) => {
-    // Left swipe = ignore/next
-    // Right swipe = interested/match
     setItems((prev) => prev.filter((item) => item.id !== id));
-    
     if (direction === 'right') {
       alert('Interest noted! You can contact the user from your profile matches.');
     }
@@ -125,11 +104,37 @@ export default function FeedPage() {
     });
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent, itemId: string) => {
     e.preventDefault();
-    if (!tempComment.trim()) return;
-    alert("Comment posted to Feed!");
-    setTempComment('');
+    if (!currentUser) {
+      alert("You must be logged in to comment.");
+      return;
+    }
+    const text = tempComments[itemId];
+    if (!text || !text.trim()) return;
+
+    // Optimistically update
+    setItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        return {
+          ...item,
+          comments: [{ id: Math.random(), content: text, profiles: { full_name: 'You' } }, ...item.comments]
+        };
+      }
+      return item;
+    }));
+    setTempComments(prev => ({ ...prev, [itemId]: '' }));
+
+    // Send to DB
+    const { error } = await supabase.from('comments').insert({
+      item_id: itemId,
+      user_id: currentUser.id,
+      content: text
+    });
+
+    if (error) {
+       console.error("Make sure to run the SQL to create the comments table!");
+    }
   };
 
   return (
@@ -140,8 +145,6 @@ export default function FeedPage() {
           <Link href="/found" className={styles.tab} style={{textDecoration:'none'}}>Found Gallery</Link>
         </div>
       </header>
-
-
 
       <div className={styles.cardContainer}>
         <AnimatePresence>
@@ -203,12 +206,10 @@ export default function FeedPage() {
                         <span className={styles.userName}>{item.user} ✓</span>
                       </div>
 
+                      {/* Privacy enhancement: Only show chat, do not expose phone number on feed */}
                       <div className={styles.actionButtons} style={{ marginTop: '16px' }}>
-                        <a href={`tel:${item.phone}`} className="btn-3d" style={{flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none'}}>
-                          <Phone size={18} /> Call
-                        </a>
                         <Link href={`/chat?peer=${item.user_id}`} className="btn-3d btn-primary" style={{flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none'}}>
-                          <MessageCircle size={18} /> Chat
+                          <MessageCircle size={18} /> Direct Message
                         </Link>
                       </div>
 
@@ -216,7 +217,6 @@ export default function FeedPage() {
                         View Full Details
                       </Link>
 
-                      {/* Social Actions */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', padding: '0 8px' }}>
                         <div style={{ display: 'flex', gap: '16px' }}>
                           <button onClick={() => toggleLike(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', color: likedItems.has(item.id) ? 'var(--status-lost-text)' : 'var(--text-secondary)' }}>
@@ -230,16 +230,28 @@ export default function FeedPage() {
                         </button>
                       </div>
 
-                      {/* Animated Comments */}
-                      <CommentTicker />
+                      {/* Real Comments Section */}
+                      {item.comments && item.comments.length > 0 && (
+                        <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                          {item.comments.slice(0, 2).map((c: any) => (
+                            <p key={c.id} style={{ fontSize: '0.8rem', margin: '4px 0', color: 'var(--text-secondary)' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)', marginRight: '4px' }}>
+                                {c.profiles?.full_name || 'User'}:
+                              </span>
+                              {c.content}
+                            </p>
+                          ))}
+                          {item.comments.length > 2 && <Link href={`/item/${item.id}`} style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>View all comments...</Link>}
+                        </div>
+                      )}
                       
                       {/* Add Comment Input */}
-                      <form onSubmit={handleCommentSubmit} style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <form onSubmit={(e) => handleCommentSubmit(e, item.id)} style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                         <input 
                           type="text" 
-                          placeholder="Add a comment..." 
-                          value={tempComment}
-                          onChange={e => setTempComment(e.target.value)}
+                          placeholder="Add a real comment..." 
+                          value={tempComments[item.id] || ''}
+                          onChange={e => setTempComments(prev => ({ ...prev, [item.id]: e.target.value }))}
                           style={{ flex: 1, background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '8px 16px', color: 'white', fontSize: '0.85rem' }} 
                         />
                         <button type="submit" style={{ background: 'var(--accent-primary)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>

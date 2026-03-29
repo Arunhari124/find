@@ -1,34 +1,20 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Navigation } from 'lucide-react';
+import { Navigation, MapPin } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/supabase';
 import styles from './map.module.css';
 
 // Leaflet requires window, so dynamically import without SSR
-const MapContainer = dynamic(
-  () => import('react-leaflet').then(mod => mod.MapContainer),
-  { ssr: false }
-);
-const TileLayer = dynamic(
-  () => import('react-leaflet').then(mod => mod.TileLayer),
-  { ssr: false }
-);
-const Marker = dynamic(
-  () => import('react-leaflet').then(mod => mod.Marker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import('react-leaflet').then(mod => mod.Popup),
-  { ssr: false }
-);
-const CircleMarker = dynamic(
-  () => import('react-leaflet').then(mod => mod.CircleMarker),
-  { ssr: false }
-);
+const MapContainer = dynamic(() => import('react-leaflet').then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import('react-leaflet').then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import('react-leaflet').then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-leaflet').then(mod => mod.Popup), { ssr: false });
+const CircleMarker = dynamic(() => import('react-leaflet').then(mod => mod.CircleMarker), { ssr: false });
 
+// Fallback coordinate generator for old items without GPS
 const getOffsetCoordinate = (seedStr: string) => {
   if (!seedStr) return [28.6139, 77.2090] as [number, number];
   let hash = 0;
@@ -40,11 +26,23 @@ const getOffsetCoordinate = (seedStr: string) => {
   return [28.6139 + latOffset, 77.2090 + lngOffset] as [number, number];
 };
 
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 export default function MapPage() {
   const [mounted, setMounted] = useState(false);
   const [items, setItems] = useState<any[]>([]);
   const [center, setCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default Delhi
   const [hasRealLocation, setHasRealLocation] = useState(false);
+  const [showNearbyList, setShowNearbyList] = useState(false);
 
   const locateUser = () => {
     if ('geolocation' in navigator) {
@@ -73,6 +71,18 @@ export default function MapPage() {
     return () => { document.head.removeChild(link); }
   }, []);
 
+  // Calculate distances and sort
+  const sortedItems = useMemo(() => {
+    if (!hasRealLocation) return items;
+    return [...items].map(item => {
+      const coords = (item.lat && item.lng) ? [item.lat, item.lng] : getOffsetCoordinate(item.location_area || item.id);
+      const dist = getDistance(center[0], center[1], coords[0], coords[1]);
+      return { ...item, computedCoords: coords, distanceToUser: dist };
+    }).sort((a, b) => a.distanceToUser - b.distanceToUser);
+  }, [items, center, hasRealLocation]);
+
+  const nearbyItems = sortedItems.filter(i => i.distanceToUser !== undefined && i.distanceToUser < 10); // within 10km
+
   if (!mounted) return <div className={styles.loading}>Loading Map...</div>;
 
   return (
@@ -96,22 +106,57 @@ export default function MapPage() {
               <Popup><b>You are here</b></Popup>
             </CircleMarker>
           )}
-          {items.map(item => (
-            <Marker key={item.id} position={getOffsetCoordinate(item.location_area || item.id)}>
-              <Popup>
-                <b>{item.product_name}</b><br />
-                Status: <span style={{color: item.type === 'lost' ? 'var(--status-lost-text)' : 'var(--status-found-text)'}}>{item.type.toUpperCase()}</span><br />
-                Location: {item.location_area || 'Unknown'}<br />
-                <button className="btn-3d btn-primary" style={{ padding: '4px 8px', marginTop: '8px', fontSize: '0.8rem' }}>View Details</button>
-              </Popup>
-            </Marker>
-          ))}
+          {sortedItems.map(item => {
+            const coords = item.computedCoords || (item.lat && item.lng ? [item.lat, item.lng] : getOffsetCoordinate(item.location_area || item.id));
+            const isNearby = item.distanceToUser && item.distanceToUser < 5; // Highlight if < 5km
+
+            return (
+              <Marker key={item.id} position={coords as [number, number]}>
+                <Popup>
+                  <b>{item.product_name}</b> {isNearby && '📍 Nearby!'}<br />
+                  Status: <span style={{color: item.type === 'lost' ? 'var(--status-lost-text)' : 'var(--status-found-text)'}}>{item.type.toUpperCase()}</span><br />
+                  Location: {item.location_area || 'Unknown'}<br />
+                  {item.distanceToUser && <small>{item.distanceToUser.toFixed(1)} km away</small>}<br/>
+                  <Link href={`/item/${item.id}`} className="btn-3d btn-primary" style={{ padding: '4px 8px', marginTop: '8px', fontSize: '0.8rem', display: 'inline-block', textDecoration: 'none' }}>
+                    View Details
+                  </Link>
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
         
         {/* Floating locate button */}
         <button className={`btn-3d ${styles.locateBtn}`} onClick={locateUser}>
           <Navigation size={24} color="var(--accent-primary)" />
         </button>
+
+        {/* Nearby Panel Toggle */}
+        <div style={{ position: 'absolute', bottom: '90px', left: '20px', right: '20px', zIndex: 1000}}>
+           <button 
+             onClick={() => setShowNearbyList(!showNearbyList)}
+             className="glass-card" 
+             style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 'none', background: 'rgba(20,20,30,0.85)', color: 'white' }}>
+             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={18} color="var(--accent-primary)"/> {showNearbyList ? 'Hide' : 'Show'} Nearby Items ({nearbyItems.length})</span>
+           </button>
+           
+           {showNearbyList && (
+             <div className="glass-card" style={{ maxHeight: '200px', overflowY: 'auto', background: 'rgba(20,20,30,0.95)', marginTop: '8px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+               {nearbyItems.length === 0 ? <p style={{ fontSize: '0.8rem', textAlign: 'center', color: 'var(--text-secondary)' }}>No items found within 10km.</p> : null}
+               {nearbyItems.map(item => (
+                 <Link key={item.id} href={`/item/${item.id}`} style={{ textDecoration: 'none' }}>
+                   <div style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                     <div>
+                       <h5 style={{ margin: 0, color: 'var(--text-primary)' }}>{item.product_name}</h5>
+                       <span style={{ fontSize: '0.75rem', color: item.type === 'lost' ? 'var(--status-lost-text)' : 'var(--status-found-text)' }}>{item.type.toUpperCase()}</span>
+                     </div>
+                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{item.distanceToUser?.toFixed(1)} km</span>
+                   </div>
+                 </Link>
+               ))}
+             </div>
+           )}
+        </div>
       </div>
 
       <BottomNav />

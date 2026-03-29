@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Camera, MapPin, CheckCircle } from 'lucide-react';
+import { Camera, MapPin, CheckCircle, Navigation, MessageCircle } from 'lucide-react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import styles from './post.module.css';
 
@@ -17,19 +18,17 @@ export default function PostItemPage() {
     name: '',
     phone: '',
     whatsapp: '',
-    // Student specifics
     studentClass: '',
     rollNumber: '',
-    // Other specifics
     occupation: '',
-    // Common Item details
     category: '',
     productName: '',
     description: '',
     location: '',
+    lat: null as number | null,
+    lng: null as number | null,
     date: '',
     reward: '',
-    // Extra details (Electronics/Jewelry)
     brand: '',
     model: '',
     color: '',
@@ -38,6 +37,36 @@ export default function PostItemPage() {
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  
+  // Smart Matching State
+  const [liveMatches, setLiveMatches] = useState<any[]>([]);
+  const [isSearchingMatch, setIsSearchingMatch] = useState(false);
+
+  // Smart Matching Effect
+  useEffect(() => {
+    const searchMatches = async () => {
+      if (formData.productName.length < 3 || step !== 3) {
+        setLiveMatches([]);
+        return;
+      }
+      setIsSearchingMatch(true);
+      
+      const oppositeType = itemType === 'lost' ? 'found' : 'lost';
+      const { data } = await supabase
+        .from('items')
+        .select('id, product_name, image_url, location_area, user_id, profiles!inner(full_name)')
+        .eq('status', 'active')
+        .eq('type', oppositeType)
+        .ilike('product_name', `%${formData.productName}%`)
+        .limit(3);
+        
+      if (data) setLiveMatches(data);
+      setIsSearchingMatch(false);
+    };
+
+    const debounceTimer = setTimeout(searchMatches, 800);
+    return () => clearTimeout(debounceTimer);
+  }, [formData.productName, step, itemType]);
 
   const handleNext = () => {
     if (step === 2) {
@@ -61,9 +90,19 @@ export default function PostItemPage() {
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
           const data = await res.json();
           const area = data.address?.suburb || data.address?.city_district || data.address?.city || data.address?.town || "Unknown Area";
-          setFormData(prev => ({ ...prev, location: `${area}, ${data.address?.state || 'Local'}` }));
+          setFormData(prev => ({ 
+            ...prev, 
+            location: `${area}, ${data.address?.state || 'Local'}`,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          }));
         } catch(e) {
-          setFormData(prev => ({ ...prev, location: `Lat: ${pos.coords.latitude.toFixed(2)}, Lng: ${pos.coords.longitude.toFixed(2)}` }));
+          setFormData(prev => ({ 
+            ...prev, 
+            location: `Lat: ${pos.coords.latitude.toFixed(2)}, Lng: ${pos.coords.longitude.toFixed(2)}`,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          }));
         }
       });
     } else {
@@ -79,11 +118,10 @@ export default function PostItemPage() {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
     
-    // Upload standard to "item-images" bucket in Supabase Storage
     const { error: uploadError } = await supabase.storage.from('item-images').upload(fileName, file);
 
     if (uploadError) {
-      alert('Error uploading image to Database bucket. Please ensure "item-images" public bucket is created: ' + uploadError.message);
+      alert('Error uploading image to Database bucket: ' + uploadError.message);
       setUploadingImage(false);
       return;
     }
@@ -119,6 +157,8 @@ export default function PostItemPage() {
       product_name: formData.productName || 'Unnamed Item',
       description: fullDescription,
       location_area: formData.location || 'Unknown Location',
+      lat: formData.lat,
+      lng: formData.lng,
       image_url: imageUrl || 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=400',
       status: 'active'
     });
@@ -140,7 +180,7 @@ export default function PostItemPage() {
         <h2>Post {itemType === 'lost' ? 'Lost' : 'Found'} Item</h2>
       </header>
 
-      <main className={styles.mainContent}>
+      <main className={styles.mainContent} style={{ paddingBottom: '100px' }}>
         {step === 1 && (
           <div className={`glass-card ${styles.card}`}>
             <h3>Are you posting a Lost or Found item?</h3>
@@ -248,10 +288,37 @@ export default function PostItemPage() {
               )}
             </label>
 
-            <div className={styles.formGroup}>
+            <div className={styles.formGroup} style={{ position: 'relative' }}>
               <label>Product Name</label>
               <input type="text" className={styles.input} value={formData.productName} onChange={e => setFormData({...formData, productName: e.target.value})} />
+              {isSearchingMatch && <span style={{position:'absolute', right:12, top:38, fontSize:'0.75rem', color:'var(--text-secondary)'}}>Searching matches...</span>}
             </div>
+
+            {/* Smart Similarity Matches Block */}
+            {liveMatches.length > 0 && (
+              <div className="glass-card" style={{ background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '12px', borderRadius: '12px', marginBottom: '16px' }}>
+                <h4 style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle size={16} /> Wait, is this your item?
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                  We found {liveMatches.length} recently {itemType === 'lost' ? 'found' : 'lost'} items that match your description!
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {liveMatches.map(match => (
+                    <div key={match.id} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '8px' }}>
+                      <img src={match.image_url} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: '6px' }} />
+                      <div style={{ flex: 1 }}>
+                        <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{match.product_name}</h5>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>By {match.profiles?.full_name} • {match.location_area}</span>
+                      </div>
+                      <Link href={`/chat?peer=${match.user_id}`} className="btn-3d btn-primary" style={{ padding: '6px 12px', display: 'flex', gap: '4px', alignItems: 'center', fontSize: '0.75rem', textDecoration: 'none' }}>
+                        <MessageCircle size={14} /> Contact
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className={styles.formGroup}>
               <label>Category</label>
@@ -265,11 +332,12 @@ export default function PostItemPage() {
             </div>
 
             <div className={styles.formGroup}>
-              <label>Location Area</label>
+              <label>Location Area (Uses Exact GPS if allowed)</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input type="text" className={styles.input} style={{ flex: 1 }} value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="Area name..." />
-                <button type="button" onClick={fetchLocation} className="btn-3d" style={{ padding: '0 12px' }}><MapPin size={20} color="var(--accent-primary)" /></button>
+                <button type="button" onClick={fetchLocation} className="btn-3d" style={{ padding: '0 12px' }}><MapPin size={20} color={formData.lat ? "var(--status-found-bg)" : "var(--accent-primary)"} /></button>
               </div>
+              {formData.lat && <small style={{ color: 'var(--status-found-text)', display: 'block', marginTop: '4px' }}>✓ Exact Location Captured</small>}
             </div>
 
             {['electronics', 'phones', 'jewelry', 'watches'].some(c => (formData.category||'').toLowerCase().includes(c)) && (
