@@ -59,7 +59,7 @@ export default function FeedPage() {
         content: string;
         profiles?: {
           full_name: string;
-        };
+        }[] | null;
       };
 
       type ItemType = {
