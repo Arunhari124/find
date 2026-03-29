@@ -36,7 +36,10 @@ export default function LoginPage() {
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={styles.input} />
           </div>
           <div className={styles.inputGroup}>
-            <label>Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>Password</label>
+              <Link href="/forgot-password" style={{ fontSize: '0.8rem', color: 'var(--primary-color)', textDecoration: 'none' }}>Forgot Password?</Link>
+            </div>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className={styles.input} />
           </div>
           <button type="submit" disabled={loading} className="btn-3d btn-primary" style={{ width: '100%', marginTop: '1rem' }}>

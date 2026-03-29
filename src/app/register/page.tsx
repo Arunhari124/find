@@ -36,7 +36,7 @@ export default function RegisterPage() {
       setError(signUpError.message);
       setLoading(false);
     } else {
-      alert("Registration successful! You can now log in.");
+      alert("Registration successful! If you have email confirmations enabled, please check your inbox to verify your account before logging in.");
       router.push('/login');
     }
   };
