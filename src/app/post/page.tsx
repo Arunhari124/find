@@ -104,7 +104,7 @@ export default function PostItemPage() {
             lng: pos.coords.longitude
           }));
         }
-      });
+      }, (err) => console.error(err), { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     } else {
       alert('Geolocation not supported');
     }

@@ -46,10 +46,14 @@ export default function MapPage() {
 
   const locateUser = () => {
     if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => {
-        setCenter([pos.coords.latitude, pos.coords.longitude]);
-        setHasRealLocation(true);
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCenter([pos.coords.latitude, pos.coords.longitude]);
+          setHasRealLocation(true);
+        },
+        (err) => console.error(err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     }
   };
   

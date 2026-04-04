@@ -238,7 +238,7 @@ export default function FeedPage() {
 
                       {/* Privacy enhancement: Only show chat, do not expose phone number on feed */}
                       <div className={styles.actionButtons} style={{ marginTop: '16px' }}>
-                        <Link href={`/chat?peer=${item.user_id}`} className="btn-3d btn-primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}>
+                        <Link href={`/chat?peer=${item.user_id}&item=${item.id}`} className="btn-3d btn-primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}>
                           <MessageCircle size={18} /> Direct Message
                         </Link>
                       </div>
@@ -262,16 +262,26 @@ export default function FeedPage() {
 
                       {/* Real Comments Section */}
                       {item.comments && item.comments.length > 0 && (
-                        <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
-                          {item.comments.slice(0, 2).map((c: any) => (
-                            <p key={c.id} style={{ fontSize: '0.8rem', margin: '4px 0', color: 'var(--text-secondary)' }}>
-                              <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)', marginRight: '4px' }}>
-                                {c.profiles?.full_name || 'User'}:
-                              </span>
-                              {c.content}
-                            </p>
-                          ))}
-                          {item.comments.length > 2 && <Link href={`/item/${item.id}`} style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>View all comments...</Link>}
+                        <div style={{ marginTop: '12px', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <AnimatePresence>
+                            {item.comments.slice(0, 3).map((c: any, cIdx: number) => (
+                              <motion.div 
+                                key={c.id} 
+                                initial={{ opacity: 0, x: -10 }} 
+                                animate={{ opacity: 1, x: 0 }} 
+                                transition={{ delay: cIdx * 0.2, duration: 0.3 }}
+                                layout
+                              >
+                                <p style={{ fontSize: '0.8rem', margin: '4px 0', color: 'var(--text-secondary)' }}>
+                                  <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)', marginRight: '4px' }}>
+                                    {c.profiles?.full_name || 'User'}:
+                                  </span>
+                                  {c.content}
+                                </p>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                          {item.comments.length > 3 && <Link href={`/item/${item.id}`} style={{ fontSize: '0.75rem', color: 'var(--primary-color)', display: 'block', marginTop: '4px' }}>View all comments...</Link>}
                         </div>
                       )}
 

@@ -23,6 +23,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+import AuthGuard from "@/components/AuthGuard";
+import TourOverlay from "@/components/TourOverlay";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,10 +36,14 @@ export default function RootLayout({
       <body className={`${inter.variable}`} suppressHydrationWarning>
         <main className="app-container">
           <div className="mobile-wrapper">
-            {children}
+            <TourOverlay />
+            <AuthGuard>
+              {children}
+            </AuthGuard>
           </div>
         </main>
       </body>
+
     </html>
   );
 }
