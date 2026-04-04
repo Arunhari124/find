@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, Suspense, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Send, ArrowLeft, MessageSquare, MapPin, AlertTriangle, ShieldOff } from 'lucide-react';
+import { Send, ArrowLeft, MessageSquare, MapPin, AlertTriangle, ShieldOff, Trash2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/supabase';
 import styles from './chat.module.css';
@@ -132,6 +132,7 @@ function InboxView() {
 }
 
 function ChatContent({ peerId, itemId }: { peerId: string, itemId: string | null }) {
+  const router = useRouter();
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -147,7 +148,8 @@ function ChatContent({ peerId, itemId }: { peerId: string, itemId: string | null
   useEffect(() => {
     // Make sure we have an audio context setup safely
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-  }, []);
+    setIsBlocked(localStorage.getItem(`blocked_${peerId}`) === 'true');
+  }, [peerId]);
 
   useEffect(() => {
     async function loadChat() {
@@ -244,10 +246,33 @@ function ChatContent({ peerId, itemId }: { peerId: string, itemId: string | null
   };
 
   const toggleBlock = () => {
-    if (window.confirm("Are you sure you want to block this user?")) {
-      setIsBlocked(true);
-      setShowOptions(false);
+    const nextBlocked = !isBlocked;
+    if (nextBlocked) {
+      if (window.confirm("Are you sure you want to block this user?")) {
+        setIsBlocked(true);
+        localStorage.setItem(`blocked_${peerId}`, 'true');
+      }
+    } else {
+      setIsBlocked(false);
+      localStorage.removeItem(`blocked_${peerId}`);
     }
+    setShowOptions(false);
+  };
+
+  const handleDeleteChat = async () => {
+    if (window.confirm("Are you sure you want to permanently delete this entire conversation?")) {
+      let query = supabase.from('messages').delete().or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${peerUser.id}),and(sender_id.eq.${peerUser.id},receiver_id.eq.${currentUser.id})`);
+      const res = await (itemId ? query.eq('item_id', itemId) : query.is('item_id', null));
+      
+      if (!res.error) {
+         setMessages([]);
+         alert('Conversation permanently deleted.');
+         router.back();
+      } else {
+         alert('Failed to delete. Make sure the RLS Database patch is applied.');
+      }
+    }
+    setShowOptions(false);
   };
 
   if (loading && !peerUser) return <div className={styles.container}><div style={{padding: '2rem'}}>Loading...</div></div>;
@@ -256,7 +281,7 @@ function ChatContent({ peerId, itemId }: { peerId: string, itemId: string | null
     <div className={styles.container}>
       <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Link href="/chat" className={styles.backBtn}><ArrowLeft size={24} /></Link>
+          <button onClick={() => router.back()} className={styles.backBtn} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><ArrowLeft size={24} /></button>
           <div className={styles.avatar}>{peerUser?.full_name?.[0] || 'C'}</div>
           <div>
             <h2 className={styles.chatName}>{peerUser?.full_name || 'Unknown User'}</h2>
@@ -268,12 +293,15 @@ function ChatContent({ peerId, itemId }: { peerId: string, itemId: string | null
         <div style={{ position: 'relative' }}>
           <button onClick={() => setShowOptions(!showOptions)} style={{ background: 'none', border: 'none', color: 'white', padding: '8px' }}>⋮</button>
           {showOptions && (
-            <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', width: '150px', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
-              <button onClick={toggleBlock} style={{ padding: '12px', background: 'none', border: 'none', color: 'var(--status-lost-text)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldOff size={16} /> Block User
+            <div className="glass-card" style={{ position: 'absolute', right: 0, top: '40px', width: '160px', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
+              <button onClick={toggleBlock} style={{ padding: '12px', background: 'none', border: 'none', color: isBlocked ? 'var(--text-primary)' : 'var(--status-lost-text)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldOff size={16} /> {isBlocked ? 'Unblock User' : 'Block User'}
               </button>
               <button onClick={() => { alert('User reported to moderation team.'); setShowOptions(false); }} style={{ padding: '12px', background: 'none', border: 'none', color: 'var(--text-primary)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
                 <AlertTriangle size={16} /> Report
+              </button>
+              <button onClick={handleDeleteChat} style={{ padding: '12px', background: 'none', border: 'none', color: 'var(--status-lost-text)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                <Trash2 size={16} /> Delete Chat
               </button>
             </div>
           )}

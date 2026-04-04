@@ -43,13 +43,33 @@ export default function MapPage() {
   const [center, setCenter] = useState<[number, number]>([28.6139, 77.2090]); // Default Delhi
   const [hasRealLocation, setHasRealLocation] = useState(false);
   const [showNearbyList, setShowNearbyList] = useState(false);
+  
+  // Police Station State
+  const [policeStation, setPoliceStation] = useState<{lat: number, lon: number, name: string} | null>(null);
 
   const locateUser = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCenter([pos.coords.latitude, pos.coords.longitude]);
+        async (pos) => {
+          const uLat = pos.coords.latitude;
+          const uLng = pos.coords.longitude;
+          setCenter([uLat, uLng]);
           setHasRealLocation(true);
+          
+          // Nearest Police Station Overpass/Nominatim query
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=police+station&limit=1&lat=${uLat}&lon=${uLng}`);
+            const data = await res.json();
+            if (data && data.length > 0) {
+               setPoliceStation({
+                  lat: parseFloat(data[0].lat),
+                  lon: parseFloat(data[0].lon),
+                  name: data[0].name || "Nearest Police Station"
+               });
+            }
+          } catch (e) {
+            console.error("Could not fetch police station", e);
+          }
         },
         (err) => console.error(err),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -96,6 +116,7 @@ export default function MapPage() {
         <div style={{ display: 'flex', gap: '8px', fontSize: '0.8rem' }}>
           <span style={{ color: 'var(--status-lost-text)', fontWeight: 'bold' }}>● LOST</span>
           <span style={{ color: 'var(--status-found-text)', fontWeight: 'bold' }}>● FOUND</span>
+          <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>● POLICE</span>
         </div>
       </header>
 
@@ -110,6 +131,13 @@ export default function MapPage() {
               <Popup><b>You are here</b></Popup>
             </CircleMarker>
           )}
+          
+          {policeStation && (
+            <CircleMarker center={[policeStation.lat, policeStation.lon]} radius={10} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.9 }}>
+               <Popup><b>{policeStation.name}</b><br/>Nearest Authority plotted for safety.</Popup>
+            </CircleMarker>
+          )}
+
           {sortedItems.map(item => {
             const coords = item.computedCoords || (item.lat && item.lng ? [item.lat, item.lng] : getOffsetCoordinate(item.location_area || item.id));
             const isNearby = item.distanceToUser && item.distanceToUser < 5; // Highlight if < 5km
@@ -131,8 +159,9 @@ export default function MapPage() {
         </MapContainer>
         
         {/* Floating locate button */}
-        <button className={`btn-3d ${styles.locateBtn}`} onClick={locateUser}>
-          <Navigation size={24} color="var(--accent-primary)" />
+        <button className={`btn-3d ${styles.locateBtn}`} onClick={locateUser} style={{ width: 'auto', padding: '10px 20px', borderRadius: '30px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Navigation size={20} color="var(--accent-primary)" /> 
+          <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>My Location</span>
         </button>
 
         {/* Nearby Panel Toggle */}
